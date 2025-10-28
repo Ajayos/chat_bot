@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PruTech Assistant</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+
+        .container {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(135deg, #0a1e3f 0%, #1a3a5c 25%, #0d2847 50%, #1a4a7a 75%, #0f2f52 100%);
+            display: flex;
+            flex-direction: column;
+            z-index: 50;
+        }
+
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            scroll-behavior: smooth;
+        }
+
+        .messages-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .messages-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .messages-container::-webkit-scrollbar-thumb {
+            background: rgba(59, 130, 246, 0.4);
+            border-radius: 4px;
+        }
+
+        .messages-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(59, 130, 246, 0.6);
+        }
+
+        .message-group {
+            display: flex;
+            position: relative;
+            align-items: flex-end;
+            gap: 0.5rem;
+        }
+
+        .message-group.user {
+            justify-content: flex-end;
+        }
+
+        .message {
+            max-width: 45rem;
+            border-radius: 1.25rem;
+            padding: 1rem 1.25rem;
+            position: relative;
+            word-wrap: break-word;
+            line-height: 1.6;
+        }
+
+        .message.user {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: #f0f9ff;
+            border-bottom-right-radius: 0.25rem;
+            box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
+            border: 1px solid rgba(147, 197, 253, 0.3);
+        }
+
+        .message.bot {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(10px);
+            color: #e0f2fe;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-bottom-left-radius: 0.25rem;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+        }
+
+        .message-text {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin-bottom: 0.5rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+            align-items: center;
+        }
+
+        .emoji {
+            font-size: 1.25rem;
+            margin: 0 0.25rem;
+        }
+
+        .message-time {
+            font-size: 0.7rem;
+            display: block;
+            margin-top: 0.5rem;
+            opacity: 0.7;
+        }
+
+        .message.user .message-time {
+            color: #bfdbfe;
+        }
+
+        .message.bot .message-time {
+            color: #7dd3fc;
+        }
+
+        .message-actions {
+            position: absolute;
+            -bottom: 0.5rem;
+            -right: 0.5rem;
+            opacity: 0;
+            transition: all 0.3s;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 2rem;
+            padding: 0.5rem;
+            display: flex;
+            gap: 0.5rem;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+
+        .message-group:hover .message-actions {
+            opacity: 1;
+        }
+
+        .action-btn {
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: #60a5fa;
+            cursor: pointer;
+            padding: 0.4rem 0.6rem;
+            border-radius: 0.5rem;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+        }
+
+        .action-btn:hover {
+            background: rgba(59, 130, 246, 0.4);
+            color: #93c5fd;
+            border-color: #3b82f6;
+        }
+
+        .action-btn.delete:hover {
+            background: rgba(239, 68, 68, 0.3);
+            color: #fca5a5;
+            border-color: #ef4444;
+        }
+
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .typing-dot {
+            width: 0.6rem;
+            height: 0.6rem;
+            background-color: #60a5fa;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite;
+        }
+
+        .typing-dot:nth-child(1) {
+            animation-delay: 0s;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes bounce {
+            0%, 60%, 100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            30% {
+                opacity: 0.5;
+                transform: translateY(-0.75rem);
+            }
+        }
+
+        @keyframes typewriter {
+            from {
+                width: 0;
+            }
+            to {
+                width: 100%;
+            }
+        }
+
+        .typing-text {
+            animation: typewriter 0.05s steps(1) forwards;
+        }
+
+        .input-area {
+            border-top: 2px solid rgba(59, 130, 246, 0.2);
+            background: rgba(10, 30, 63, 0.7);
+            backdrop-filter: blur(20px);
+            padding: 1.5rem;
+            position: sticky;
+            bottom: 0;
+            z-index: 10;
+        }
+
+        .input-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .edit-indicator {
+            display: none;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(59, 130, 246, 0.15);
+            border-left: 3px solid #3b82f6;
+            border-radius: 0.5rem;
+            font-size: 0.8rem;
+            color: #60a5fa;
+        }
+
+        .edit-indicator.active {
+            display: flex;
+        }
+
+        .api-status {
+            display: none;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(16, 185, 129, 0.15);
+            border-left: 3px solid #10b981;
+            border-radius: 0.5rem;
+            font-size: 0.8rem;
+            color: #6ee7b7;
+        }
+
+        .api-status.active {
+            display: flex;
+        }
+
+        .api-status.error {
+            background: rgba(239, 68, 68, 0.15);
+            border-left-color: #ef4444;
+            color: #fca5a5;
+        }
+
+        .spinner {
+            width: 0.5rem;
+            height: 0.5rem;
+            border: 2px solid rgba(16, 185, 129, 0.3);
+            border-top-color: #10b981;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .spinner.error {
+            border-top-color: #ef4444;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .input-row {
+            display: flex;
+            align-items: flex-end;
+            gap: 0.75rem;
+        }
+
+        .voice-btn {
+            padding: 0.75rem 1rem;
+            border-radius: 1rem;
+            border: 2px solid rgba(59, 130, 246, 0.5);
+            background: rgba(15, 23, 42, 0.6);
+            color: #60a5fa;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 1rem;
+        }
+
+        .voice-btn:hover:not(:disabled) {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: #3b82f6;
+            color: #93c5fd;
+        }
+
+        .voice-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .voice-btn.active {
+            background: rgba(239, 68, 68, 0.3);
+            color: #fca5a5;
+            border-color: #ef4444;
+            animation: pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        .input-field {
+            flex: 1;
+            padding: 1rem;
+            background: rgba(15, 23, 42, 0.8);
+            border: 2px solid rgba(59, 130, 246, 0.3);
+            border-radius: 1.25rem;
+            color: #e0f2fe;
+            font-size: 0.95rem;
+            outline: none;
+            transition: all 0.3s;
+            max-height: 7rem;
+            resize: none;
+            font-family: inherit;
+        }
+
+        .input-field::placeholder {
+            color: #475569;
+        }
+
+        .input-field:focus {
+            border-color: #3b82f6;
+            background: rgba(15, 23, 42, 0.95);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .send-btn {
+            padding: 0.75rem 1rem;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            border: 2px solid rgba(59, 130, 246, 0.5);
+            border-radius: 1rem;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+
+        .send-btn:hover:not(:disabled) {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            box-shadow: 0 8px 20px rgba(59, 130, 246, 0.5);
+            border-color: #3b82f6;
+        }
+
+        .send-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .cancel-btn {
+            padding: 0.5rem 0.75rem;
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #fca5a5;
+            cursor: pointer;
+            border-radius: 0.75rem;
+            font-size: 0.8rem;
+            transition: all 0.3s;
+            display: none;
+        }
+
+        .cancel-btn.active {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .cancel-btn:hover {
+            background: rgba(239, 68, 68, 0.3);
+            border-color: #ef4444;
+            color: #ff7f7f;
+        }
+
+        strong {
+            font-weight: 700;
+            color: #bfdbfe;
+        }
+
+        em {
+            font-style: italic;
+            color: #93c5fd;
+        }
+
+        a {
+            color: #60a5fa;
+            text-decoration: none;
+            border-bottom: 1px solid rgba(96, 165, 250, 0.5);
+            transition: all 0.3s;
+        }
+
+        a:hover {
+            color: #93c5fd;
+            border-bottom-color: #93c5fd;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Messages Container -->
+        <div class="messages-container" id="messagesContainer">
+            <div class="message-group">
+                <div class="message bot">
+                    <div class="message-text">
+                        <span class="emoji">👋</span>
+                        <span>Welcome to PruTech Assistant! I'm here to help you with any questions about our services and products. Type <strong>/help</strong> for commands.</span>
+                    </div>
+                    <span class="message-time" id="welcomeTime"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="input-area">
+            <div class="input-wrapper">
+                <div class="edit-indicator" id="editIndicator">
+                    <i class="fas fa-edit"></i>
+                    <span>Editing message...</span>
+                </div>
+
+                <div class="api-status" id="apiStatus">
+                    <div class="spinner"></div>
+                    <span>Calling API...</span>
+                </div>
+                
+                <div class="input-row">
+                    <button class="voice-btn" id="voiceBtn" title="Voice Input">
+                        <i class="fas fa-microphone"></i>
+                    </button>
+                    <textarea 
+                        class="input-field" 
+                        id="messageInput" 
+                        placeholder="Ask PruTech anything... (Shift+Enter for new line)"
+                        rows="1"
+                    ></textarea>
+                    <button class="send-btn" id="sendBtn">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+
+                <div class="button-group">
+                    <button class="cancel-btn" id="cancelEdit">
+                        <i class="fas fa-times"></i>
+                        <span>Cancel Edit</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const messagesContainer = document.getElementById('messagesContainer');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const voiceBtn = document.getElementById('voiceBtn');
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        const cancelEdit = document.getElementById('cancelEdit');
+        const editIndicator = document.getElementById('editIndicator');
+        const apiStatus = document.getElementById('apiStatus');
+        const container = document.querySelector('.container');
+
+        let messages = [];
+        let loading = false;
+        let isVoiceActive = false;
+        let editingMessageId = null;
+        let recognition = null;
+
+        // API Configuration
+        const API_CONFIG = {
+            baseURL: 'https://api.cohere.com/v1',
+            model: 'command-light',
+            // Replace with your actual API key
+            apiKey: 'YOUR_API_KEY_HERE'
+        };
+
+        // Set welcome message time
+        document.getElementById('welcomeTime').textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        // Auto-resize textarea
+        messageInput.addEventListener('input', () => {
+            messageInput.style.height = 'auto';
+            messageInput.style.height = Math.min(messageInput.scrollHeight, 112) + 'px';
+        });
+
+        // Initialize speech recognition
+        function initSpeechRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (SpeechRecognition) {
+                recognition = new SpeechRecognition();
+                recognition.continuous = false;
+                recognition.interimResults = false;
+                recognition.lang = 'en-US';
+                
+                recognition.onresult = (event) => {
+                    const transcript = event.results[0][0].transcript;
+                    messageInput.value += transcript;
+                    messageInput.dispatchEvent(new Event('input'));
+                };
+                
+                recognition.onerror = (event) => {
+                    console.error('Speech recognition error:', event.error);
+                    isVoiceActive = false;
+                    voiceBtn.classList.remove('active');
+                };
+                
+                recognition.onend = () => {
+                    isVoiceActive = false;
+                    voiceBtn.classList.remove('active');
+                };
+            }
+        }
+
+        initSpeechRecognition();
+
+        // Voice button toggle
+        voiceBtn.addEventListener('click', () => {
+            if (!recognition) return;
+            if (isVoiceActive) {
+                recognition.stop();
+            } else {
+                recognition.start();
+            }
+            isVoiceActive = !isVoiceActive;
+            voiceBtn.classList.toggle('active');
+        });
+
+        // Fullscreen toggle
+        fullscreenBtn.addEventListener('click', async () => {
+            if (!document.fullscreenElement) {
+                try {
+                    await container.requestFullscreen();
+                    fullscreenBtn.innerHTML = '<i class="fas fa-compress"></i>';
+                } catch (err) {
+                    console.error('Fullscreen request failed:', err);
+                }
+            } else {
+                try {
+                    await document.exitFullscreen();
+                    fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
+                } catch (err) {
+                    console.error('Exit fullscreen failed:', err);
+                }
+            }
+        });
+
+        // Render markdown-like text
+        function renderMessage(text) {
+            let html = text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+            return html;
+        }
+
+        // Add message to UI
+        function addMessage(text, sender, id, isTyping = false) {
+            const msgGroup = document.createElement('div');
+            msgGroup.className = `message-group ${sender}`;
+            msgGroup.dataset.id = id;
+
+            const msg = document.createElement('div');
+            msg.className = `message ${sender}`;
+
+            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            if (isTyping) {
+                msg.innerHTML = `
+                    <div class="message-text typing-indicator">
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                    </div>
+                `;
+            } else {
+                msg.innerHTML = `
+                    <div class="message-text">${renderMessage(text)}</div>
+                    <span class="message-time">${time}</span>
+                    ${sender === 'user' ? `
+                        <div class="message-actions">
+                            <button class="action-btn edit-btn" data-id="${id}" title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="action-btn delete-btn" data-id="${id}" title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    ` : ''}
+                `;
+            }
+
+            msgGroup.appendChild(msg);
+            messagesContainer.appendChild(msgGroup);
+            scrollToBottom();
+
+            // Add event listeners
+            msg.querySelector('.edit-btn')?.addEventListener('click', (e) => {
+                startEdit(id, text);
+            });
+            msg.querySelector('.delete-btn')?.addEventListener('click', (e) => {
+                deleteMessage(id);
+            });
+
+            return msgGroup;
+        }
+
+        // Update message with typewriter effect
+        function updateMessageWithTyping(msgGroup, text) {
+            const msg = msgGroup.querySelector('.message');
+            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            msg.innerHTML = `
+                <div class="message-text">${renderMessage(text)}</div>
+                <span class="message-time">${time}</span>
+            `;
+            scrollToBottom();
+        }
+
+        // Delete message
+        function deleteMessage(id) {
+            const msgGroup = messagesContainer.querySelector(`[data-id="${id}"]`);
+            msgGroup?.remove();
+        }
+
+        // Start edit mode
+        function startEdit(id, text) {
+            editingMessageId = id;
+            messageInput.value = text;
+            messageInput.placeholder = "Edit your message...";
+            messageInput.dispatchEvent(new Event('input'));
+            messageInput.focus();
+            cancelEdit.classList.add('active');
+            editIndicator.classList.add('active');
+        }
+
+        // Cancel edit
+        cancelEdit.addEventListener('click', () => {
+            editingMessageId = null;
+            messageInput.value = '';
+            messageInput.placeholder = "Ask PruTech anything... (Shift+Enter for new line)";
+            messageInput.style.height = 'auto';
+            cancelEdit.classList.remove('active');
+            editIndicator.classList.remove('active');
+        });
+
+        // Handle commands
+        function handleCommand(text) {
+            const cmd = text.toLowerCase();
+            if (cmd === '/clear') {
+                messagesContainer.innerHTML = '<div class="message-group"><div class="message bot"><div class="message-text"><span class="emoji">👋</span><span>Welcome to PruTech Assistant! I\'m here to help you with any questions about our services and products. Type <strong>/help</strong> for commands.</span></div><span class="message-time"></span></div></div>';
+                document.querySelector('.message-time').textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                return true;
+            }
+            if (cmd.startsWith('/theme ')) {
+                const theme = cmd.split(' ')[1];
+                if (theme === 'dark') {
+                    container.style.background = 'linear-gradient(135deg, #0a0e27 0%, #0f1b35 100%)';
+                } else if (theme === 'light') {
+                    container.style.background = 'linear-gradient(135deg, #e0f2fe 0%, #bfdbfe 100%)';
+                }
+                return true;
+            }
+            return false;
+        }
+
+        // Call API for AI response
+        async function callAPI(userMessage) {
+            try {
+                apiStatus.classList.add('active');
+                apiStatus.querySelector('span').textContent = 'Calling API...';
+                apiStatus.querySelector('.spinner').classList.remove('error');
+
+                // Example using a mock API response
+                // Replace this with your actual API call
+                const response = await fetch(`${API_CONFIG.baseURL}/generate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${API_CONFIG.apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: API_CONFIG.model,
+                        prompt: userMessage,
+                        max_tokens: 200,
+                        temperature: 0.8
+                    })
+                }).catch(() => {
+                    throw new Error('API call failed');
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                apiStatus.classList.remove('active');
+                return data.generations[0].text.trim();
+            } catch (error) {
+                console.error('API Error:', error);
+                apiStatus.querySelector('span').textContent = `API Error: ${error.message}`;
+                apiStatus.querySelector('.spinner').classList.add('error');
+                
+                // Fallback to demo response
+                setTimeout(() => {
+                    apiStatus.classList.remove('active');
+                }, 2000);
+
+                let botReply = "Thanks for your message! ";
+                if (userMessage.toLowerCase().includes('help')) {
+                    botReply += "📋 Available commands:\n• **/clear** - Clear chat\n• **/theme dark** or **light** - Change theme\n• Try asking about our services!";
+                } else if (userMessage.toLowerCase().includes('prutech')) {
+                    botReply += "🚀 PruTech offers **cutting-edge tech solutions**. **Visit [our site](https://prutech.com)** for more info!";
+                } else {
+                    botReply += "🤖 I'm powered by advanced AI. Try asking about products, services, or type **/help** for commands.";
+                }
+                return botReply;
+            }
+        }
+
+        // Send message
+        sendBtn.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        async function sendMessage() {
+            const text = messageInput.value.trim();
+            if (!text || loading) return;
+
+            // Handle commands
+            if (handleCommand(text)) {
+                messageInput.value = '';
+                messageInput.style.height = 'auto';
+                return;
+            }
+
+            let messageId = Date.now().toString();
+
+            if (editingMessageId) {
+                // Update existing message
+                const msgGroup = messagesContainer.querySelector(`[data-id="${editingMessageId}"]`);
+                const msgTextElem = msgGroup.querySelector('.message-text');
+                msgTextElem.innerHTML = renderMessage(text);
+                editingMessageId = null;
+                cancelEdit.classList.remove('active');
+                editIndicator.classList.remove('active');
+            } else {
+                // Add user message
+                addMessage(text, 'user', messageId);
+            }
+
+            messageInput.value = '';
+            messageInput.style.height = 'auto';
+            loading = true;
+            sendBtn.disabled = true;
+
+            // Add bot typing indicator
+            const botMessageId = (Date.now() + 1).toString();
+            const botMsgGroup = addMessage('', 'bot', botMessageId, true);
+
+            // Call API
+            const botReply = await callAPI(text);
+
+            // Update bot message
+            updateMessageWithTyping(botMsgGroup, botReply);
+
+            loading = false;
+            sendBtn.disabled = false;
+        }
+
+        // Scroll to bottom
+        function scrollToBottom() {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+    </script>
+</body>
+</html>
